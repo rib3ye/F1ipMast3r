@@ -249,7 +249,7 @@ DELAY 400
 ENTER
 ```
 
-Linux quick wallpaper prank (you own the laptop, right?):
+Linux quick wallpaper swap:
 
 ```
 ALT F2
@@ -258,13 +258,16 @@ STRING gsettings set org.gnome.desktop.background picture-uri 'file:///tmp/dolph
 ENTER
 ```
 
-### BadUSB ethics
+### BadUSB notes
 
-The Flipper has no idea whether you own the target. The Flipper believes you. Don't betray that trust. See [opsec-and-limits.md](opsec-and-limits.md).
+- The Flipper presents as a USB HID keyboard; from the host's view there is no difference between a Flipper payload and a person typing extremely fast.
+- Set the keyboard layout to match the host (`badusb/assets/layouts/`). A US layout typing on a French AZERTY system will produce garbage, especially for symbols.
+- Some EDR / kiosk-mode software flags "100 keystrokes in 200 ms"; insert `DELAY 50` after each `STRING` if you need to look human.
+- The BadUSB app holds the USB stack — you can't run BadUSB and U2F simultaneously.
 
 ## U2F — second factor security key
 
-The Flipper implements **FIDO U2F** (CTAP1) over USB HID. It does not implement FIDO2 / WebAuthn / passkeys, and it cannot impersonate a Yubikey because U2F includes per-key attestation and per-site key derivation.
+The Flipper implements **FIDO U2F** (CTAP1) over USB HID. It does not implement FIDO2 / WebAuthn / passkeys, and it cannot present as a different existing security key because U2F includes per-key attestation and per-site key derivation.
 
 Setup:
 
@@ -279,15 +282,15 @@ Each registration creates a per-site key handle stored in the relying party's da
 - **Do not check `/ext/u2f/` into version control.** Even though the data is encrypted on-card, the secrets should not leave your custody.
 - If the master secret is compromised, every site you registered with this Flipper as a U2F key needs to be re-enrolled with a new key.
 
-The Flipper's U2F is a *second factor*, not a key-extraction tool. There is no "dump U2F key" function and there shouldn't be.
+The Flipper's U2F is a *second factor*. There is no built-in "dump U2F key" function — the master secret stays in the SD-card secure store and the per-site keys are derived on demand.
 
 ## Putting it together
 
-A typical mischief loop:
+A typical loop for a multi-mode session:
 
 1. Write a host Python script with `pyflipper` that uploads a payload `.txt`, sets the BadUSB layout, and starts the BadUSB app.
 2. Plug the Flipper into the target host.
 3. Press OK on the Flipper to start typing.
 4. Disconnect, swap to a different mode (Sub-GHz / NFC / U2F), repeat.
 
-When your script touches the U2F app or sends payloads to a target you don't own, stop and read [opsec-and-limits.md](opsec-and-limits.md) again.
+For everything that won't work as expected — region TX blocks, rolling-code receivers, secure-element NFC, layout-mismatched BadUSB — see [limits.md](limits.md).

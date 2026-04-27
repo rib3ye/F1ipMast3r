@@ -205,7 +205,7 @@ Key methods:
 - `getFrequency()`, `getRssi()`, `getState()`, `isExternal()`.
 - `transmitFile(path)` → replays a `.sub` file. Returns `true` on success, `undefined`/error if the file is invalid or the band is region-blocked.
 
-Region transmit blocks apply equally to JS — if the region forbids it, `transmitFile` errors out. See [opsec-and-limits.md](opsec-and-limits.md).
+Region transmit blocks apply equally to JS — if the region forbids it, `transmitFile` errors out. See [limits.md](limits.md) → "Region transmit blocks".
 
 ### `badusb` — keyboard emulation
 

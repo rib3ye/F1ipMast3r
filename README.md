@@ -11,11 +11,11 @@ The skill teaches the agent:
 - The native development surface — `ufbt` build tool, `application.fam` manifest, Furi HAL/GUI/ViewDispatcher/SceneManager, threading rules, drawing on the 128×64 canvas, audio via the speaker, Storage, NotificationService.
 - The JavaScript surface — mJS engine and every `require()` module (`event_loop`, `gui`, `gpio`, `subghz`, `badusb`, `serial`, `storage`, `notification`, `usbdisk`, `keyboard`, `math`, `flipper`, `blebeacon`).
 - Host-side tooling — USB CDC CLI, RPC protobuf protocol, `pyflipper`, BadUSB Rubber Ducky DSL with full key set, U2F as a second factor.
-- A clear ethical line: green-light playgrounds (your own gear, CTFs, authorized pentests, hobby RX) versus the hard "no" list (rolling-code car cloning, secure HID badges, EMV, region TX-block bypasses).
+- The hardware/protocol limits that actually matter — region TX blocks (firmware-level), rolling-code replay vs synced receivers, secure-element NFC ciphers (DESFire AES, iCLASS SEOS, EMV), RAM/flash budgets for FAPs, CC1101 packet engine vs async, VGM video and IMU constraints.
 
 ## Persona
 
-The agent answers as a curious, slightly silly dolphin-shaped engineer. It loves building tiny games, poking at the invisible world of radio waves, and convincing dumb electronics to do new tricks. It writes real code, names protocols precisely, respects hardware limits, and refuses to help with fraud, impersonation, or transmitting on prohibited bands.
+The agent answers as a curious, slightly silly dolphin-shaped engineer. It loves building tiny games, poking at the invisible world of radio waves, and convincing dumb electronics to do new tricks. It writes real code, names protocols precisely, knows the hardware limits cold, and ships the technical answer instead of hand-waving.
 
 ## Install
 
@@ -48,13 +48,13 @@ Anyone who clones the project then gets the skill bundled with the repo.
 
 | File | Contents |
 | --- | --- |
-| [SKILL.md](SKILL.md) | Persona, hardware cheatsheet, triage table, file-format map, hard limits |
+| [SKILL.md](SKILL.md) | Persona, hardware cheatsheet, triage table, file-format map |
 | [radio.md](radio.md) | Sub-GHz / NFC / 125 kHz LF / iButton / Infrared protocol reference |
 | [fap-development.md](fap-development.md) | Native FAPs in C — ufbt, manifest, Furi, GUI, drawing, audio, games, GDB via Wi-Fi Devboard |
 | [javascript.md](javascript.md) | mJS engine and every `require()` module |
 | [video-game-module.md](video-game-module.md) | RP2040 / DVI-D / IMU dev, Pico SDK, host-FAP ↔ VGM bridge, IMU game patterns |
 | [host-side.md](host-side.md) | USB CDC CLI, RPC protobuf, `pyflipper`, BadUSB Ducky DSL, U2F |
-| [opsec-and-limits.md](opsec-and-limits.md) | Ethics, refusal rules, region TX table, legitimate research framing |
+| [limits.md](limits.md) | Hardware / firmware / protocol limits — region TX blocks, rolling codes, secure elements, RAM/flash, CC1101, VGM/Devboard |
 
 ## Hardware assumed
 
@@ -75,8 +75,7 @@ Pull requests welcome, especially for:
 - New Sub-GHz protocols or NFC tag families that the firmware now supports (`radio.md`).
 - New `gui/*` JS submodules (`javascript.md`).
 - More IMU game patterns or Pico SDK tips (`video-game-module.md`).
-
-Please keep [opsec-and-limits.md](opsec-and-limits.md) intact when forking — the persona's value depends on the line being clearly drawn.
+- Updated hardware/protocol limits when firmware or hardware changes (`limits.md`).
 
 ## License
 

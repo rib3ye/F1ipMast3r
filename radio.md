@@ -73,7 +73,7 @@ Rolling-code (Flipper reads or saves the raw, but does NOT defeat the rolling-co
 - Somfy Telis / Keytis
 - Chamberlain Security+ 2.0
 
-If a user wants to clone a rolling-code FOB they don't own, refuse and link [opsec-and-limits.md](opsec-and-limits.md).
+A captured rolling-code transmission cannot be replayed against a synced receiver — the receiver has already advanced past that counter value. See [limits.md](limits.md) → "Rolling codes" for what that means in practice.
 
 ### `.sub` file format (Flipper Format File)
 
@@ -93,16 +93,16 @@ Raw signal variant uses `Protocol: RAW` plus `RAW_Data:` lines of signed integer
 
 ### Region transmit table
 
-Flipper Zero **receives** anywhere in 300–348 / 387–464 / 779–928 MHz. It **transmits** only on bands legal for civilian use in the configured region. Authoritative source: [docs.flipper.net/zero/sub-ghz/frequencies](https://docs.flipper.net/zero/sub-ghz/frequencies). Snapshot of the most-used regions:
+Flipper Zero **receives** anywhere in 300–348 / 387–464 / 779–928 MHz. It **transmits** only on bands the active region marks legal for civilian use. The block is enforced inside the firmware before the CC1101 is keyed, so it applies to the Sub-GHz app, `furi_hal_subghz_set_frequency`, the JS `subghz` module, and the CLI/RPC surfaces alike. When blocked the UI shows: *"Transmission is blocked. Transmission on this frequency is restricted in your region."* Full table and the reasons each band is or isn't permitted lives in [limits.md](limits.md) → "Region transmit blocks". Authoritative source: [docs.flipper.net/zero/sub-ghz/frequencies](https://docs.flipper.net/zero/sub-ghz/frequencies). Quick snapshot:
 
 | Region | Allowed TX bands |
 | --- | --- |
 | EU / UK | 433.05–434.79 MHz, 868.15–868.55 MHz |
 | US / CA / MX / AU / NZ / BR / AR | 304.10–321.95 MHz, 433.05–434.79 MHz, 915.00–928.00 MHz |
 | JP | 312.00–315.25 MHz, 426.25–426.83 MHz, 920.50–923.50 MHz |
-| Rest of the world | varies — see linked page |
+| Rest of the world | varies — see [limits.md](limits.md) |
 
-Bypassing this list is out of scope. If a frequency is blocked, the Flipper UI shows "Transmission is blocked. Transmission on this frequency is restricted in your region." That's working as intended.
+Region is set at `Settings → System → Region`. Some firmware forks (Momentum, Unleashed, RogueMaster, Xtreme) expose a "world" / "developer" region option that lifts the table.
 
 ## NFC (13.56 MHz, ST25R3916)
 
@@ -116,9 +116,9 @@ Bypassing this list is out of scope. If a frequency is blocked, the Flipper UI s
 - **ISO14443B** — read-only support for some transit cards.
 - **ISO15693 / NFC-V** — SLI / SLIX (Tag-it / I-Code), used in some library / inventory systems.
 - **FeliCa (JIS X 6319-4)** — Suica, PASMO, Octopus. Flipper reads service codes + block data when the area is unencrypted.
-- **EMV (bank cards)** — Flipper reads the public application list and primary account number where exposed, but does NOT and SHOULD NOT emulate. Don't help with emulation.
+- **EMV (bank cards)** — Flipper reads the public application list and primary account number where exposed. Live transaction emulation is not possible without the card's per-card secret key, which the chip doesn't expose; "EMV emulation" in any tooling is at best a relay attack with both ends physically present. See [limits.md](limits.md) → "EMV (bank cards)".
 
-### Magic cards (legitimate copy targets)
+### Magic cards (copy targets)
 
 - **Gen1A / "Magic" Classic** — backdoor at block 0 lets you write the UID. Detect with `RC500 unlock` or "Read with debug" in the NFC menu.
 - **Gen2 / CUID** — UID is writable but block 0 has standard auth.
@@ -167,7 +167,7 @@ Key B sector 0: FF FF FF FF FF FF
 
 ### Universal write target
 
-**T5577** (a.k.a. ATA5577) is the chip you want for legitimate cloning of cards you own. It can emulate basically every 125 kHz protocol Flipper reads. Buy them in bulk on AliExpress for ~$0.30 each. Flipper writes the right modulation/bit count automatically when you choose "Write T5577" from a saved card.
+**T5577** (a.k.a. ATA5577) is the universal 125 kHz blank — it can emulate basically every 125 kHz protocol the Flipper reads. Buy them in bulk on AliExpress for ~$0.30 each. Flipper writes the right modulation/bit count automatically when you choose "Write T5577" from a saved card. EM4305 is the second-best alternative (cheaper, fewer protocol options).
 
 **EM4305** is the alternative blank — slower to clone, fewer formats supported.
 
@@ -249,7 +249,7 @@ Multiple buttons live in the same file. Universal remote DBs ship under `infrare
 
 - Carrier frequency defaults to 38 kHz (consumer IR). AC remotes often use 36/40 kHz — use Pronto or RAW.
 - Don't expect to clone the bidirectional handshake of a smart TV's HDMI-CEC remote — the back channel is on a different bus.
-- For "I want to mute every TV in this restaurant" energy → see [opsec-and-limits.md](opsec-and-limits.md). It's not the worst thing you can do but it's not zero impact either.
+- TV-B-Gone-style "shut up" databases (every common TV-off code in one file) live under `infrared/assets/tv-universal.ir`.
 
 ## Cross-protocol file API
 

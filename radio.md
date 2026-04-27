@@ -93,16 +93,73 @@ Raw signal variant uses `Protocol: RAW` plus `RAW_Data:` lines of signed integer
 
 ### Region transmit table
 
-Flipper Zero **receives** anywhere in 300–348 / 387–464 / 779–928 MHz. It **transmits** only on bands the active region marks legal for civilian use. The block is enforced inside the firmware before the CC1101 is keyed, so it applies to the Sub-GHz app, `furi_hal_subghz_set_frequency`, the JS `subghz` module, and the CLI/RPC surfaces alike. When blocked the UI shows: *"Transmission is blocked. Transmission on this frequency is restricted in your region."* Full table and the reasons each band is or isn't permitted lives in [limits.md](limits.md) → "Region transmit blocks". Authoritative source: [docs.flipper.net/zero/sub-ghz/frequencies](https://docs.flipper.net/zero/sub-ghz/frequencies). Quick snapshot:
+Flipper Zero **receives** anywhere in 300–348 / 387–464 / 779–928 MHz. It **transmits** only on bands the active region marks legal for civilian use. The block is enforced inside the firmware before the CC1101 is keyed, so it applies equally to the Sub-GHz app, `furi_hal_subghz_set_frequency`, the JS `subghz` module, the CLI/RPC surfaces, and any custom FAP. When blocked the UI shows: *"Transmission is blocked. Transmission on this frequency is restricted in your region."*
 
-| Region | Allowed TX bands |
+The full per-region table and notes live in [limits.md](limits.md) → "Region transmit blocks". Authoritative external source: [docs.flipper.net/zero/sub-ghz/frequencies](https://docs.flipper.net/zero/sub-ghz/frequencies). Region toggle: `Settings → System → Region`; Momentum/Unleashed/RogueMaster expose a "world" option that lifts the block.
+
+## Sub-GHz operator workflows
+
+Knowing the protocols isn't the job — knowing what to do when you don't yet know which protocol is. Pre-canned playbooks:
+
+### Frequency Analyzer first
+
+`Sub-GHz → Frequency Analyzer` is the first tool you reach for against an unknown remote. It sweeps the operational windows watching RSSI and snaps to the strongest carrier when you hold the FOB's button. If it locks 433.92 MHz, you're in Princeton/CAME/Nice country; 315 MHz says US-market garage/automotive; 868.35 MHz says EU-market alarm/gate.
+
+If the FOB never lights it up, suspect: out-of-band (e.g. 869.85 MHz "European SRD" — in window but not popular), DSSS / FHSS (won't decode regardless — see [limits.md](limits.md)), or you're holding the wrong button.
+
+### `Read` vs `Read RAW`
+
+| Mode | Use when |
 | --- | --- |
-| EU / UK | 433.05–434.79 MHz, 868.15–868.55 MHz |
-| US / CA / MX / AU / NZ / BR / AR | 304.10–321.95 MHz, 433.05–434.79 MHz, 915.00–928.00 MHz |
-| JP | 312.00–315.25 MHz, 426.25–426.83 MHz, 920.50–923.50 MHz |
-| Rest of the world | varies — see [limits.md](limits.md) |
+| `Sub-GHz → Read` | You expect a known protocol (Princeton, CAME, Nice, KeeLoq, etc.). Returns parsed key+button+TE — small, replayable, editable in qFlipper |
+| `Sub-GHz → Read RAW` | Decoder doesn't lock, or you need the timing array verbatim (custom modulation, weird preamble) |
+| `Read RAW` then convert | Capture once, analyze on host with [Universal Radio Hacker](https://github.com/jopohl/urh), then synthesize a parsed `.sub` |
 
-Region is set at `Settings → System → Region`. Some firmware forks (Momentum, Unleashed, RogueMaster, Xtreme) expose a "world" / "developer" region option that lifts the table.
+`Read RAW` files are larger, won't show a friendly key on the Flipper, but transmit faithfully. They're also how you preserve a rolling-code transmission for later analysis (even though you can't replay it productively against a synced receiver).
+
+### Sub-GHz Bruteforcer / OpenGarages
+
+For 12-bit fixed-code gates (Princeton-family `PT2240`, `PT2262`, `EV1527` with the classic 4096-state keyspace), the community **Sub-GHz Bruteforcer** FAP enumerates the entire keyspace in ~3 minutes per frequency. It ships with `.sub` payload files for the common encodings under `apps_data/subbrute/`. Still useless against rolling-code receivers.
+
+### TPMS
+
+Tire-pressure sensors broadcast every ~30–60 seconds at 315 MHz (US) or 433.92 MHz (EU/JP). Each sensor's ID is unique and unencrypted. **TPMS Reader** community FAPs decode Schrader, Continental, Toyota, Pacific Industries, Renault, GM and a few others — mostly useful for fleet/asset tracking, parking-lot recon, or vehicle re-identification.
+
+### POCSAG / FLEX
+
+Pager traffic on 138 / 153 / 158 / 163 / 450 MHz (region-dependent) is plaintext POCSAG or FLEX. Flipper FAPs (e.g. **Sub-GHz Pagers**, decoder forks) demodulate POCSAG-512/1200/2400 at 433.92 / 868 MHz where it overlaps the operational windows. Hospitals, restaurants, and a surprising amount of legacy industrial telemetry still ride this.
+
+### Continuous-TX (jammer pattern)
+
+The CC1101 supports continuous unmodulated carrier via `furi_hal_subghz_tx_continuous` (or by setting the chip into TX mode without an async source). It's the lowest-level hammer: full-band RF noise on the configured frequency until you stop it.
+
+Caveats that always apply:
+
+- Region block applies. The firmware refuses to key the CC1101 outside the region's TX bands.
+- Drains the battery in roughly 10–20 minutes flat.
+- Effective range is the same ~50 m as a normal TX — it's not a wide-area jammer.
+- "RollJam" against rolling-code receivers (jam + capture + replay-with-stored) is a *concept* not a stock feature; needs custom firmware AND physical proximity to the legitimate FOB owner.
+
+The takeaway for any operator question about jamming: the API exists, the band is enforced, the range is short, and the battery costs are real.
+
+### Replay attacks against the obvious targets
+
+| Target class | Outcome of straight replay |
+| --- | --- |
+| Princeton / CAME / Nice fixed-code gate | Works (often) |
+| KeeLoq HCS-family rolling-code FOB | **Fails** against synced receiver — see [limits.md](limits.md) |
+| Tesla 315 MHz charge-port latch (pre-2021ish) | Replay works on older firmware; Tesla patched the rolling code on newer cars. Worth `Read` + try, useful as a known case study |
+| Doorbell / weather sensor / cheap remote | Almost always works |
+| Faac SLH / Beninca / Somfy Telis | Rolling, fails |
+| Industrial RF remote (overhead crane, cement mixer) | Mixed — many use fixed-code ASK, replay works |
+
+### Sub-GHz Chat
+
+`subghz chat <freq>` (CLI) or **Sub-GHz Chat** app turns two Flippers within ~50 m into walkie-talkies on a chosen frequency in the region's TX band. Slow, lossy, but it's a covert side channel that doesn't touch IP, BLE, or anything monitorable from the network. **ESubGhz Chat** (community FAP) adds AES encryption with a pre-shared key.
+
+### External CC1101 module
+
+If the receiver's >50 m, swap to an external CC1101 module on the GPIO header with an SMA antenna. `subghz.isExternal()` (JS) or the on-device "External Module" toggle reroutes TX/RX through it. Gain budget: +6 to +12 dB depending on the antenna; line-of-sight ~150 m at 433 MHz becomes plausible.
 
 ## NFC (13.56 MHz, ST25R3916)
 
@@ -144,11 +201,93 @@ Key A sector 0: FF FF FF FF FF FF
 Key B sector 0: FF FF FF FF FF FF
 ```
 
+### Hotel keycard families
+
+Most hotel locks are MIFARE Classic 1k variants with a vendor-specific sector layout. Flipper handles the chip; the *interpretation* of the data is what differs.
+
+| Family | Chip | Interesting because |
+| --- | --- | --- |
+| **Saflok / Dormakaba** | MIFARE Classic 1k or Ultralight C | **Unsaflok** (March 2024, CVE-2024-32877 cluster) — derive a master key from a single guest card, forge any keycard for that property. Affects ~3M doors globally. Patches rolling out slowly. |
+| **VingCard** (Assa Abloy) | MIFARE Classic 1k / DESFire / iCLASS | Older Vision/Signature locks have known fixed-key sectors; newer Allure/Essence series moved to DESFire AES (out of reach without keys) |
+| **Salto** | MIFARE Classic, DESFire EV1/2, BLE add-on | "Carrier" model encodes access on the card itself — interesting target for offline analysis. Newer SVN-flex moves auth on-line |
+| **Kaba** (now Dormakaba) | shares Saflok-side chips | See Saflok |
+| **Onity** | proprietary IR DC port (NOT NFC) | Famously Cody Brocious / "Black Hat 2012" sidechannel — that was the IR DC barrel-jack on the lock body. Flipper IR can speak it; see [infrared](#infrared-tx-led--rx-photodiode) |
+
+Workflow against an unknown hotel card: read with the dedicated NFC app → check `Mifare Classic type` and `UID` length in the saved `.nfc` → run a dictionary scan → if all sectors crack, look at sector layout (lots of `00 00 00 ...` is suspicious; `key_a` reuse across rooms says the lock uses a property-wide master). The Unsaflok work was published — search current public writeups for the master-key derivation if the property hasn't patched yet.
+
+### HID iCLASS / PicoPass
+
+iCLASS is HID's 13.56 MHz line, *not* MIFARE-compatible. Flipper supports it via the **PicoPass** community FAP (and increasingly natively in OFW).
+
+| Variant | Crypto | Realistic |
+| --- | --- | --- |
+| **iCLASS Legacy** ("Standard") | Single-DES with a customer-shared master key | Master key is publicly known (HID had a key-leak ~2012). Flipper reads + writes via PicoPass / **Seader** apps |
+| **iCLASS SE** | AES with per-card derived keys | Out of reach without the customer's master |
+| **iCLASS SEOS** | AES; mobile-credential capable (HID Mobile Access) | Out of reach; SEOS is the modern HID enterprise badge |
+
+Workflow: read with PicoPass FAP → save → write to a **PicoPass blank** (sold as "SE blank" or "iCLASS blank" — search "iCLASS PicoPass blank card"). Standard MIFARE T5577/Magic blanks won't hold an iCLASS personality.
+
+The **Seader** app exposes the iCLASS reader/emulator to a host PC over USB — useful for hooking into Proxmark3 workflows when you want to do bigger crypto work the Flipper can't.
+
+### MIFARE Classic key recovery — `mfkey32` walkthrough
+
+Skip if you already have a known key (then dictionary or Hardnested).
+
+1. Save a target card with `Read` (saves UID + ATQA + SAK; keys still unknown).
+2. `Apps → NFC → Detect Reader` → tap the Flipper to the **legitimate reader** (not the card). Reader sends nonces + auth attempts; Flipper logs them to `/ext/nfc/.mfkey32.log`.
+3. After ~10–30 reader interactions, the log holds enough nonce pairs.
+4. Run `mfkey32` on the saved log on the Flipper itself (`NFC → mfkey32` menu in OFW; in older firmware, copy the log off and run `mfkey32 v2` on a host).
+5. Keys get appended to `/ext/nfc/assets/mf_classic_dict_user.nfc`.
+6. Re-read the original card → those keys now in the dictionary unlock the sectors → full dump.
+
+Alternatives:
+
+- **Dictionary attack first** — Flipper auto-runs the system dictionary on every Classic read. Many cheap badges still ship with default `FF FF FF FF FF FF` or a known-vendor key.
+- **Hardnested** — needs at least one known key for one sector. Flipper has it built in (`Read with debug`).
+- **Static-nonce / nested classic** — older variants, also built in.
+
+### Built-in dictionaries
+
+| Path | What's in it |
+| --- | --- |
+| `nfc/assets/mf_classic_dict.nfc` | Stock dictionary shipped with firmware — default keys, common transit, vending, common access-control families |
+| `nfc/assets/mf_classic_dict_user.nfc` | Your additions. Auto-grown by `mfkey32` runs |
+| `nfc/assets/mf_ul_dict.nfc` | MIFARE Ultralight C / NTAG21x passwords |
+
+Extend the user dictionary by appending hex strings (one key per line, 12 hex chars):
+
+```
+A0A1A2A3A4A5
+D3F7D3F7D3F7
+4B791BEA7BCC
+```
+
+The community-curated **flipper_mfkey** dictionary (UberGuidoZ pack) merges keys from public dumps; drop into the user file to massively widen first-pass coverage.
+
+### NTAG215 / Amiibo
+
+Amiibo are NTAG215 with a 540-byte payload signed by Nintendo's master key. Flipper's NFC app reads them directly; for *generating* arbitrary Amiibo you need:
+
+- The Amiibo master keys (`unfixed-info.bin` + `locked-secret.bin`) from Nintendo. Public.
+- A serializer like **Amiitool** or the **Amiibomb** community FAP that bakes them on-Flipper.
+
+Write target: NTAG215 blanks, or **Magic Ultralight / "DirectWrite"** for full UID control. Flipper preserves the dynamic lock bytes correctly when cloning genuine Amiibo.
+
+### Other useful NFC FAPs
+
+| FAP | Job |
+| --- | --- |
+| **NFC Magic** | Direct magic-card writes (Gen1A backdoor, Gen2 CUID, Gen3, Gen4 personality switch). The proper tool for cloning to magic blanks |
+| **Mifare Fuzzer** | Automated brute-force / fuzz against unknown MIFARE Classic key spaces — slow but unattended-runs-friendly |
+| **PicoPass** / **Seader** | iCLASS Legacy read/write + Proxmark3 bridge |
+| **Amiibomb** / **AmiiGo** | On-Flipper Amiibo generation |
+| **Apple Pay Express** | Reads the public Apple Pay transit data from EMV transit cards |
+
 ### Workflow tips
 
-- For MIFARE Classic key recovery without a known key, capture an authentic interaction with the real reader (`Detect Reader`) — the Flipper records reader nonces, then `mfkey32 v2` cracks them offline. Default-key dictionary scans first; Hardnested only if you already know one key.
-- For dumping NTAG215 / Amiibo, use the dedicated NTAG menu — Flipper preserves dynamic lock bytes correctly.
-- For DESFire research, the Flipper exposes raw `iso14443_4a_*` APIs in C — you can build your own APDU explorer.
+- For DESFire research, the Flipper exposes raw `iso14443_4a_*` APIs in C — build your own APDU explorer if you need to talk to a specific applet.
+- "Read with debug" mode is gated behind `Settings → System → Debug = ON` and exposes more raw frame info.
+- After cloning to a magic card, **always verify by reading the clone**, not just by trusting the write status.
 
 ## 125 kHz LF RFID
 
@@ -211,7 +350,13 @@ Data: 01 12 34 56 78 9A BC DE
 
 Programming a blank: Saved → Write — Flipper handles the protocol-specific timing.
 
-## Infrared (TX LED + RX photodiode)
+### Polarity / contact gotcha
+
+The single biggest "why doesn't this work?" with iButton is contact polarity. The **flat side** of the Dallas-style button is the data line; the rim is GND. The Flipper's iButton pad has a center disc (data) surrounded by a ring (GND). Press the **flat face down** onto the pad so the center disc touches the flat side. Coming in at an angle, or pressing the rim side, gets you intermittent reads or no read at all. RW1990 / TM2004 blanks have the same orientation as the original keys; visually identical, mark them so you don't confuse "read" and "write" stock.
+
+## Infrared (5-LED omnidirectional TX + RX photodiode)
+
+Hardware: **5 IR LEDs arranged in a star** at the top edge so the Flipper TXs in roughly every direction at once. RX is a single photodiode behind the same window. You don't need to aim carefully when transmitting — practical range is ~5 m and the omnidirectional pattern means a 30° miss still works. RX is much more directional; line up the source remote square-on for clean captures.
 
 ### Decoded protocols
 

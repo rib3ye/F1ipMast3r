@@ -63,22 +63,24 @@ let submenu   = require("gui/submenu");     // gui submodules require gui first
 
 Module availability varies by firmware fork. The matrix below is a rough snapshot — when in doubt, check `applications/system/js_app/modules/` in the firmware you target.
 
-| Module | OFW | Momentum | Unleashed | RogueMaster | Xtreme |
-| --- | --- | --- | --- | --- | --- |
-| `event_loop` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `gui` + submodules | ✅ | ✅ | partial | partial | partial |
-| `gpio` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `badusb` | ✅ | ✅ (+`quit`/`altPrint`) | ✅ | ✅ | ✅ |
-| `subghz` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `serial` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `storage` | ✅ | ✅ (+`append`) | partial | partial | partial |
-| `notification` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `math` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `flipper` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `usbdisk` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `keyboard` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| `blebeacon` | — | ✅ | partial | partial | — |
-| `widget` (legacy) | partial | partial | partial | — | partial |
+| Module | OFW | Momentum | Unleashed | RogueMaster |
+| --- | --- | --- | --- | --- |
+| `event_loop` | ✅ | ✅ | ✅ | ✅ |
+| `gui` + submodules | ✅ | ✅ | partial | partial |
+| `gpio` | ✅ | ✅ | ✅ | ✅ |
+| `badusb` | ✅ | ✅ (+`quit`/`altPrint`) | ✅ | ✅ |
+| `subghz` | ✅ | ✅ | ✅ | ✅ |
+| `serial` | ✅ | ✅ | ✅ | ✅ |
+| `storage` | ✅ | ✅ (+`append`) | partial | partial |
+| `notification` | ✅ | ✅ | ✅ | ✅ |
+| `math` | ✅ | ✅ | ✅ | ✅ |
+| `flipper` | ✅ | ✅ | ✅ | ✅ |
+| `usbdisk` | ✅ | ✅ | ✅ | ✅ |
+| `keyboard` | ✅ | ✅ | ✅ | ✅ |
+| `blebeacon` | — | ✅ | partial | partial |
+| `widget` (legacy) | partial | partial | partial | — |
+
+(Xtreme is no longer a separate fork — its app/JS-module set folded into Momentum in 2024.)
 
 ### `event_loop` — the async backbone
 

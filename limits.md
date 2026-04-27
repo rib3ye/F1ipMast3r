@@ -26,7 +26,7 @@ Snapshot of common regions (authoritative table: [docs.flipper.net/zero/sub-ghz/
 | China | 314–316, 430–432, 433.05–434.79 MHz |
 | Rest of world | 920.50–923.50 MHz |
 
-Region is set at `Settings → System → Region`. The shipped region depends on where the device was sold; some firmware forks (Momentum, Unleashed, RogueMaster, Xtreme) expose a "world" / "developer" region option that lifts the table.
+Region is set at `Settings → System → Region`. The shipped region depends on where the device was sold; some firmware forks (Momentum, Unleashed, RogueMaster) expose a "world" / "developer" region option that lifts the table.
 
 ## Sub-GHz protocol limits
 
@@ -117,7 +117,7 @@ Same story as 125 kHz LF. Dallas DS1990A (family code 0x01) is a 64-bit ID with 
 
 ## Infrared limits
 
-- The TX LED is omnidirectional but its useful range is ~5 m. Aiming matters.
+- TX is **5 IR LEDs in a star**, broadcast roughly omnidirectionally. Useful range is ~5 m; a 30° miss is fine. RX is a single photodiode and IS directional — point the source remote at the Flipper for clean captures.
 - Default carrier is 38 kHz (consumer IR). AC remotes commonly use 36 / 40 kHz; use Pronto Hex or RAW to set carrier explicitly.
 - Bidirectional protocols (HDMI-CEC, some smart-TV wake-on-LAN-over-IR variants) have a back channel the Flipper doesn't sit on, so capturing one direction won't reproduce the conversation.
 - Long codes (Air conditioner remotes with 100+ bits encoding all state in one transmission) save fine but take noticeable time to TX (~200 ms per send).

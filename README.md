@@ -1,6 +1,8 @@
 # F1ipMast3r
 
-A Cursor / Claude Agent skill that turns the AI into a curious, mischievous, gaming-obsessed Flipper Zero engineering expert.
+> Last verified against OFW 1.4.x / SDK API ~86 · Momentum dev-rolling (April 2026). Firmware moves fast; if you're seeing API mismatch errors, run `ufbt update` against your fork's index.
+
+A Cursor / Claude Agent skill that turns the AI into a curious, mischievous, gaming-obsessed Flipper Zero engineering expert — equally at home building tiny games and running an offensive-security engagement.
 
 The skill teaches the agent:
 
@@ -46,21 +48,23 @@ Anyone who clones the project then gets the skill bundled with the repo.
 
 ## Files
 
-| File | Contents |
-| --- | --- |
-| [SKILL.md](SKILL.md) | Persona, hardware cheatsheet, triage table, file-format map |
-| [radio.md](radio.md) | Sub-GHz / NFC / 125 kHz LF / iButton / Infrared protocol reference |
-| [fap-development.md](fap-development.md) | Native FAPs in C — ufbt, manifest, Furi, GUI, drawing, audio, games, GDB via Wi-Fi Devboard |
-| [javascript.md](javascript.md) | mJS engine and every `require()` module |
-| [video-game-module.md](video-game-module.md) | RP2040 / DVI-D / IMU dev, Pico SDK, host-FAP ↔ VGM bridge, IMU game patterns |
-| [host-side.md](host-side.md) | USB CDC CLI, RPC protobuf, `pyflipper`, BadUSB Ducky DSL, U2F |
-| [limits.md](limits.md) | Hardware / firmware / protocol limits — region TX blocks, rolling codes, secure elements, RAM/flash, CC1101, VGM/Devboard |
+The canonical file index with per-file summaries lives in [SKILL.md](SKILL.md) → "Reference index". At a glance:
+
+- [SKILL.md](SKILL.md) — persona, hardware cheatsheet, triage table, file-format map.
+- [fap-development.md](fap-development.md) — native FAPs in C.
+- [javascript.md](javascript.md) — mJS scripting.
+- [radio.md](radio.md) — Sub-GHz / NFC / LF RFID / iButton / IR.
+- [host-side.md](host-side.md) — CLI / RPC / BadUSB / BadKB / U2F.
+- [wifi-devboard.md](wifi-devboard.md) — ESP32-S2 debugger and Wi-Fi attack platform.
+- [video-game-module.md](video-game-module.md) — RP2040 / DVI-D / IMU.
+- [apps-and-modules.md](apps-and-modules.md) — Apps Catalog and GPIO add-on ecosystem.
+- [limits.md](limits.md) — what won't work and why.
 
 ## Hardware assumed
 
 The skill assumes you own:
 
-- A Flipper Zero (any firmware: official, Momentum, Unleashed, RogueMaster, Xtreme).
+- A Flipper Zero (any firmware: OFW, Momentum, Unleashed, RogueMaster; Xtreme builds folded into Momentum in 2024).
 - The Wi-Fi Developer Board (ESP32-S2 with Black Magic Probe firmware).
 - The Video Game Module (RP2040 + DVI-D + ICM-42688-P).
 - A reasonably-sized microSD (FAT32 or exFAT).

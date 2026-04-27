@@ -62,6 +62,33 @@ The function name in `entry_point=` must match. Return 0 on clean exit, nonzero 
 Most apps are: an app context struct + ViewDispatcher juggling 2–6 named views, with optional SceneManager when the navigation graph gets non-trivial.
 
 ```c
+// scenes.h — usually generated. Each scene needs on_enter / on_event / on_exit.
+typedef enum { MyAppSceneStart, MyAppSceneSettings, MyAppSceneCount } MyAppScene;
+
+void my_app_scene_start_on_enter(void* ctx);
+bool my_app_scene_start_on_event(void* ctx, SceneManagerEvent event);
+void my_app_scene_start_on_exit(void* ctx);
+// ...repeat for each scene...
+
+void (*const my_app_scene_on_enter_handlers[])(void*) = {
+    my_app_scene_start_on_enter,
+    my_app_scene_settings_on_enter,
+};
+bool (*const my_app_scene_on_event_handlers[])(void*, SceneManagerEvent) = {
+    my_app_scene_start_on_event,
+    my_app_scene_settings_on_event,
+};
+void (*const my_app_scene_on_exit_handlers[])(void*) = {
+    my_app_scene_start_on_exit,
+    my_app_scene_settings_on_exit,
+};
+const SceneManagerHandlers app_scene_handlers = {
+    .on_enter_handlers = my_app_scene_on_enter_handlers,
+    .on_event_handlers = my_app_scene_on_event_handlers,
+    .on_exit_handlers  = my_app_scene_on_exit_handlers,
+    .scene_num = MyAppSceneCount,
+};
+
 typedef enum { ViewMain, ViewSettings, ViewAbout, ViewCount } AppView;
 
 typedef struct {
@@ -129,6 +156,8 @@ int32_t my_app_main(void* p) {
     return 0;
 }
 ```
+
+In real apps each scene goes in its own file under `scenes/`, and `application.fam` lists them via `sources=["*.c", "scenes/*.c"]`. Look at firmware's `applications/main/subghz/scenes/` for canonical examples.
 
 Available view types (modules): `Submenu`, `VariableItemList`, `TextInput`, `ByteInput`, `NumberInput`, `Popup`, `DialogEx`, `Widget`, `TextBox`, `Loading`, `Menu`, `ButtonMenu`, `ButtonPanel`, `EmptyScreen`, `FileBrowser`. Each has a `*_alloc` / `*_free` / `*_get_view` triplet.
 
@@ -293,15 +322,21 @@ typedef struct {
     InputEvent input;
 } GameEvent;
 
+typedef struct {
+    GameState state;
+    FuriMutex* mutex;
+} GameCtx;
+
 static void render(Canvas* canvas, void* ctx) {
-    const GameState* s = furi_mutex_acquire_blocking(state_mutex);
+    GameCtx* g = ctx;
+    furi_mutex_acquire(g->mutex, FuriWaitForever);
     canvas_clear(canvas);
-    canvas_draw_box(canvas, s->player_x, s->player_y, 3, 3);
+    canvas_draw_box(canvas, g->state.player_x, g->state.player_y, 3, 3);
     char buf[16];
-    snprintf(buf, sizeof(buf), "Score %lu", s->score);
+    snprintf(buf, sizeof(buf), "Score %lu", g->state.score);
     canvas_set_font(canvas, FontSecondary);
     canvas_draw_str(canvas, 2, 8, buf);
-    furi_mutex_release(state_mutex);
+    furi_mutex_release(g->mutex);
 }
 
 static void on_input(InputEvent* e, void* ctx) {
@@ -318,12 +353,14 @@ static void on_tick(void* ctx) {
 
 int32_t snake_main(void* p) {
     UNUSED(p);
-    GameState state = {.player_x = 64, .player_y = 32};
+    GameCtx g = {
+        .state = {.player_x = 64, .player_y = 32},
+        .mutex = furi_mutex_alloc(FuriMutexTypeNormal),
+    };
     FuriMessageQueue* queue = furi_message_queue_alloc(8, sizeof(GameEvent));
-    FuriMutex* state_mutex = furi_mutex_alloc(FuriMutexTypeNormal);
 
     ViewPort* vp = view_port_alloc();
-    view_port_draw_callback_set(vp, render, &state);
+    view_port_draw_callback_set(vp, render, &g);
     view_port_input_callback_set(vp, on_input, queue);
 
     Gui* gui = furi_record_open(RECORD_GUI);
@@ -333,30 +370,32 @@ int32_t snake_main(void* p) {
     furi_timer_start(tick, furi_kernel_get_tick_frequency() / 30);  // ~30 FPS
 
     GameEvent ev;
-    while (!state.game_over) {
+    while (!g.state.game_over) {
         if (furi_message_queue_get(queue, &ev, 100) != FuriStatusOk) continue;
-        furi_mutex_acquire(state_mutex, FuriWaitForever);
+        furi_mutex_acquire(g.mutex, FuriWaitForever);
         if (ev.type == EventTypeInput) {
             if (ev.input.type == InputTypePress) {
-                if (ev.input.key == InputKeyBack) state.game_over = true;
-                if (ev.input.key == InputKeyRight) state.player_x++;
+                if (ev.input.key == InputKeyBack)  g.state.game_over = true;
+                if (ev.input.key == InputKeyRight) g.state.player_x++;
                 // ...
             }
         } else {  // tick
             // physics, AI, score
         }
-        furi_mutex_release(state_mutex);
+        furi_mutex_release(g.mutex);
         view_port_update(vp);
     }
 
     furi_timer_stop(tick); furi_timer_free(tick);
     gui_remove_view_port(gui, vp); view_port_free(vp);
     furi_record_close(RECORD_GUI);
-    furi_mutex_free(state_mutex);
+    furi_mutex_free(g.mutex);
     furi_message_queue_free(queue);
     return 0;
 }
 ```
+
+The mutex protects `g.state` from being read mid-update by the GUI service's draw thread. `furi_mutex_acquire` returns a `FuriStatus`, not a state pointer — pull the state through the context, not the mutex return value.
 
 Tips:
 
@@ -380,26 +419,11 @@ For apps that load runtime extensions (e.g. `ESubGhz Chat`, multi-protocol decod
 
 ## Debugging via the Wi-Fi Developer Board
 
-Hardware: ESP32-S2-WROVER carrier with Black Magic Probe + CMSIS-DAP firmware. Plugs into the Flipper GPIO. SWD wired to:
-
-- Pin 10 → SWCLK (ESP32 GPIO1)
-- Pin 12 → SWDIO (ESP32 GPIO2)
-- Pin 9 → 3V3 (only matters when not USB-powered)
-- Pin 11 → GND
-
-### One-time setup
-
-1. Flipper: **Settings → System → Debug = ON**.
-2. Plug Devboard into Flipper. Power it from USB-C (your PC).
-3. Connect to its Wi-Fi AP `blackmagic` / password `iamwitcher`. Or USB CDC.
-4. mDNS hostname: `blackmagic.local`. GDB server on port `2345`. Web UI on port 80 to switch USB mode (BlackMagic vs DAP) and Wi-Fi STA/AP.
-
-### Quick GDB session
+Full setup (SWD pinout, Black Magic Wi-Fi/USB modes, GDB session, VS Code launch configs, `furi_assert` recovery, log CDC) lives in [wifi-devboard.md](wifi-devboard.md). The 60-second version:
 
 ```bash
-# inside flipperzero-firmware checkout
-./fbt get_blackmagic                        # auto-detect; prints connection string
-./fbt blackmagic                            # spawn local proxy
+# Flipper: Settings → System → Debug = ON, then plug the Devboard in
+./fbt blackmagic                             # spawn local proxy in firmware checkout
 arm-none-eabi-gdb -ex 'target extended-remote tcp:blackmagic.local:2345' \
                   build/f7-firmware-D/firmware.elf
 (gdb) monitor swdp_scan
@@ -407,28 +431,19 @@ arm-none-eabi-gdb -ex 'target extended-remote tcp:blackmagic.local:2345' \
 (gdb) c
 ```
 
-Or, for an external FAP, attach to the running firmware then `add-symbol-file dist/my_app.elf 0x<load_addr>` (load address printed in the CLI when the FAP starts; turn on Debug in Flipper Settings to see it).
+For an external FAP, attach to the running firmware, then `add-symbol-file dist/my_app.elf 0x<load_addr>` (the load address is printed in the CLI when the FAP starts, with Debug on).
 
-### VS Code
+`ufbt vscode_dist` drops a `.vscode/launch.json` with **Attach FW (blackmagic)** (Wi-Fi or USB CDC) and **Attach FW (DAP)** (USB-only). F5 → freeze at current PC → `c` → reproduce → `bt`.
 
-`ufbt vscode_dist` drops `.vscode/launch.json` with two configurations:
+When `furi_assert` fires, the CPU is halted. Attach, `c` once to reach the assert site, `bt`/`info locals`/`up`/`down`. The message lives in `__furi_check_message` and `__furi_crash_message` globals.
 
-- **Attach FW (blackmagic)** — works over Wi-Fi or USB CDC, autodetects.
-- **Attach FW (DAP)** — USB-only, requires Devboard in DAP mode (web UI → switch).
+The Devboard's second CDC interface streams `furi_log_print_format` output — `/dev/cu.usbmodemflip_*1` is CLI/RPC, `*3` is logs (macOS), 230400 baud.
 
-Hit F5 → Flipper freezes at current PC → `c` to continue → reproduce the bug → backtrace as usual.
-
-### When `furi_assert` fires
-
-The assert handler stops the CPU. Attach the debugger, type `c` once to reach the assert point, then `bt` for the call stack. `info locals` and `up`/`down` work as you'd expect. The assert message is in `__furi_check_message` / `__furi_crash_message` globals — print them via `p __furi_check_message`.
-
-### Reading logs
-
-The Devboard exposes a second USB CDC interface dedicated to firmware logs (`furi_log_print_format`). On macOS that's typically `/dev/cu.usbmodemflip_*1` for CLI/RPC and `/dev/cu.usbmodemflip_*3` for logs. Open with `screen` or `minicom` at 230400 baud, or use the web UI's log tab.
+The same Devboard hardware also runs Marauder / Ghost ESP / Bruce / Evil Portal — see [wifi-devboard.md](wifi-devboard.md) for that surface.
 
 ## Tooling tips
 
-- `ufbt update` syncs the SDK to your firmware's API version. If the user is on Momentum / Unleashed / Xtreme, point `ufbt` at their SDK with `ufbt update --index-url=<fork_index>`.
+- `ufbt update` syncs the SDK to your firmware's API version. If the user is on Momentum / Unleashed / RogueMaster, point `ufbt` at their SDK with `ufbt update --index-url=<fork_index>`.
 - `ufbt cli` opens the on-device CLI without a separate terminal — handy for `loader open MyApp` to launch an installed FAP.
 - `ufbt fap_deploy` copies all built FAPs from `dist/` to the SD card without launching.
 - Always check `Target: 7, API: <n>` in the build output. If API mismatches the SD-card SDK, the FAP refuses to load with `App is not compatible`.

@@ -176,7 +176,7 @@ let eventLoop = require("event_loop");
 eventLoop.subscribe(pc3.events, function () { print("edge!"); });
 ```
 
-ADC variant (`PA1`, `PC0`–`PC3` etc.):
+ADC variant (`PC0`, `PC1`, `PC3`, `PA4`, `PA6`, `PA7`):
 
 ```javascript
 pc3.init({ direction: "in", pull: "no" });

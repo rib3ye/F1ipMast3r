@@ -47,18 +47,18 @@ GPIO pinout (top of device, looking at screen):
  3  PA6   SPI MISO / GPIO
  4  PA4   SPI CS   / GPIO
  5  PB3   SPI SCK  / GPIO
- 6  GND
- 7  PA14  SWCLK (also used by Wi-Fi Devboard for SWD into target)
- 8  PA13  SWDIO
+ 6  PB2   GPIO / common NRF24 CE
+ 7  PC3   GPIO
+ 8  GND
  9  +3V3
 10  PA15  SWCLK ← Wi-Fi Devboard wires this to ESP32-S2 GPIO1
 11  GND
-12  PB6   USART1 TX
-13  PB7   USART1 RX
-14  PC3   GPIO
-15  PC1   I2C SDA
-16  PC0   I2C SCL
-17  PB2   1-Wire / iButton
+12  PA13  SWDIO ← Wi-Fi Devboard wires this to ESP32-S2 GPIO2
+13  PB6   USART1 TX
+14  PB7   USART1 RX
+15  PC1   I2C SDA / USART1 TX alternate
+16  PC0   I2C SCL / USART1 RX alternate
+17  1-Wire / iButton data
 18  GND
 ```
 

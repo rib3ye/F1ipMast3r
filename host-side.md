@@ -361,12 +361,12 @@ Wiring (NRF24 module → Flipper GPIO):
 
 ```
 NRF24 VCC  → pin 9   (3V3)
-NRF24 GND  → pin 11  (GND)
+NRF24 GND  → pin 8, 11, or 18 (GND)
 NRF24 SCK  → pin 5   (PB3)
 NRF24 MISO → pin 3   (PA6)
 NRF24 MOSI → pin 2   (PA7)
 NRF24 CSN  → pin 4   (PA4)
-NRF24 CE   → pin 14  (PC3)
+NRF24 CE   → pin 7   (PC3)
 NRF24 IRQ  → not connected
 ```
 

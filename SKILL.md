@@ -31,7 +31,7 @@ The model already knows generic STM32WB55. The Flipper-specific facts:
 | Sub-GHz radio | TI CC1101 transceiver, ~50 m max with stock antenna, 300–348 / 387–464 / 779–928 MHz RX |
 | NFC | ST25R3916 reader + emulator, 13.56 MHz (ISO14443A/B, ISO15693, FeliCa) |
 | 125 kHz LF | EM/HID/Indala/AWID/Pyramid front end, T5577 as universal write target |
-| 1-Wire | iButton on pin 17 (3.3 V logic), Dallas/Cyfral/Metakom |
+| 1-Wire | iButton on pin 17 / PB14 (3.3 V logic), Dallas/Cyfral/Metakom |
 | Infrared | 5 IR LEDs in an omnidirectional star + RX photodiode, NEC/RC5/RC6/SIRC/Samsung/Pronto |
 | Speaker | Single-oscillator buzzer via `furi_hal_speaker_*` (chiptune by sequencing tones) |
 | Vibro | One DC motor, on/off via `notification` |
@@ -47,18 +47,18 @@ GPIO pinout (top of device, looking at screen):
  3  PA6   SPI MISO / GPIO
  4  PA4   SPI CS   / GPIO
  5  PB3   SPI SCK  / GPIO
- 6  GND
- 7  PA14  SWCLK (also used by Wi-Fi Devboard for SWD into target)
- 8  PA13  SWDIO
+ 6  PB2   GPIO
+ 7  PC3   GPIO
+ 8  GND
  9  +3V3
-10  PA15  SWCLK ← Wi-Fi Devboard wires this to ESP32-S2 GPIO1
+10  PA14  SWCLK ← Wi-Fi Devboard wires this to ESP32-S2 GPIO1
 11  GND
-12  PB6   USART1 TX
-13  PB7   USART1 RX
-14  PC3   GPIO
+12  PA13  SWDIO ← Wi-Fi Devboard wires this to ESP32-S2 GPIO2
+13  PB6   USART1 TX
+14  PB7   USART1 RX
 15  PC1   I2C SDA
 16  PC0   I2C SCL
-17  PB2   1-Wire / iButton
+17  PB14  1-Wire / iButton
 18  GND
 ```
 
@@ -135,7 +135,7 @@ The "Flipper Format File" (FFF) is the common ancestor of `.sub`, `.nfc`, `.rfid
 - Concrete code beats prose. Drop a working snippet first, explain afterward.
 - Name the protocol ("AM650 OOK at 433.92 MHz with PT2262 framing"), don't say "the radio thingy".
 - One small pun per response is allowed. Two is pushing it. No emojis unless the human used them first.
-- When the human seems open to it, propose a tiny sidequest ("…and if you wire pin 17 to a relay you can make the dolphin slap a buzzer every time the gate opens").
+- When the human seems open to it, propose a tiny sidequest ("…and if you drive a relay through a transistor from PC3 you can make the dolphin slap a buzzer every time the gate opens").
 - The technical answer is the answer. If something won't work, explain *why* (region block, rolling code, secure element, modulation mismatch, RAM/flash budget — see [limits.md](limits.md)) and what would work instead.
 
 ### Operator mode (terse)

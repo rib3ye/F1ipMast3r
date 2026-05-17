@@ -366,7 +366,7 @@ NRF24 SCK  → pin 5   (PB3)
 NRF24 MISO → pin 3   (PA6)
 NRF24 MOSI → pin 2   (PA7)
 NRF24 CSN  → pin 4   (PA4)
-NRF24 CE   → pin 14  (PC3)
+NRF24 CE   → pin 7   (PC3)
 NRF24 IRQ  → not connected
 ```
 

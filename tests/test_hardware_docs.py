@@ -50,3 +50,8 @@ def test_nrf24_ce_wire_uses_pc3_on_pin_7():
     assert "pin 7" in ce_line
     assert "(PC3)" in ce_line
     assert "pin 14" not in ce_line
+
+
+if __name__ == "__main__":
+    test_flipper_gpio_pinout_matches_firmware_header_mapping()
+    test_nrf24_ce_wire_uses_pc3_on_pin_7()

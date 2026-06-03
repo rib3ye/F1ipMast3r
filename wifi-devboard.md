@@ -33,7 +33,17 @@ Rev1 vs rev2 silicon: identical from the operator's perspective; rev2 fixes a US
 | **Bruce** | Multi-purpose: Wi-Fi attacks + IR + sub-GHz over GPIO + RFID — kitchen-sink offensive firmware | Standalone web UI / Flipper companion |
 | **Evil Portal** | Single-purpose captive portal with templated landing pages on the SD card | Web UI + companion FAP |
 
-Switching firmware: hold BOOT, tap RESET (release BOOT) → S2 enters download mode → flash with `esptool.py --chip esp32s2 write_flash 0x1000 firmware.bin` or drag the `.bin` into the on-board web flasher most of these projects ship.
+Switching firmware: hold BOOT, tap RESET (release BOOT) -> S2 enters download mode -> use the firmware project's own flasher / `flash_args`. Do **not** write an arbitrary app `.bin` at `0x1000`; on ESP32-S2 that is the bootloader slot. For split images the usual Devboard layout is:
+
+```bash
+esptool.py --chip esp32s2 write_flash -z \
+  0x1000 bootloader.bin \
+  0x8000 partitions.bin \
+  0xE000 boot_app0.bin \
+  0x10000 firmware.bin
+```
+
+If the project ships one merged flash image, write it at the offset its docs specify (commonly `0x0`) or drag it into the on-board web flasher most of these projects ship.
 
 ## SWD / debugger flow (was in fap-development.md)
 

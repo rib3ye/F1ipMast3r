@@ -84,7 +84,7 @@ The assert handler stops the CPU. Attach the debugger, type `c` once to reach th
 
 ### Reading logs
 
-The Devboard exposes a second USB CDC interface dedicated to firmware logs (`furi_log_print_format`). On macOS that's typically `/dev/cu.usbmodemflip_*1` for CLI/RPC and `/dev/cu.usbmodemflip_*3` for logs. Open with `screen` or `minicom` at 230400 baud, or use the web UI's log tab.
+The Devboard exposes a second USB CDC interface dedicated to Flipper firmware logs (`furi_log_print_format`). In Black Magic mode on macOS, the Devboard usually appears as `/dev/cu.usbmodemblackmagic1` for GDB/console and `/dev/cu.usbmodemblackmagic3` for logs. Open the log port with `screen` or `minicom` at 230400 baud; Devboard log capture requires the Devboard's USB connection, not Wi-Fi.
 
 ### Debugging non-Flipper ARM targets
 
@@ -141,8 +141,8 @@ Plugging the Flipper AND a USB-C cable into the Devboard at once gives you four 
 | --- | --- | --- | --- |
 | Flipper CDC0 | STM32 | `/dev/cu.usbmodemflip_*1` | CLI / RPC |
 | Flipper CDC1 | STM32 | `/dev/cu.usbmodemflip_*3` | Flipper logs |
-| Devboard CDC0 | ESP32-S2 | `/dev/cu.usbmodem*1` (separate device tree, no `flip_` prefix) | BM GDB / Marauder console |
-| Devboard CDC1 | ESP32-S2 | `/dev/cu.usbmodem*3` | UART passthrough (often Flipper's pin 13/14 USART1) |
+| Devboard CDC0 | ESP32-S2 | `/dev/cu.usbmodemblackmagic1` in Black Magic mode | BM GDB / console |
+| Devboard CDC1 | ESP32-S2 | `/dev/cu.usbmodemblackmagic3` in Black Magic mode | Flipper logs via Devboard UART (Marauder firmwares use their own device names) |
 
 `ls /dev/cu.usbmodem*` after plugging each one in separately is the fastest way to disambiguate.
 

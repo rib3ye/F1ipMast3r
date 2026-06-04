@@ -33,7 +33,17 @@ Rev1 vs rev2 silicon: identical from the operator's perspective; rev2 fixes a US
 | **Bruce** | Multi-purpose: Wi-Fi attacks + IR + sub-GHz over GPIO + RFID — kitchen-sink offensive firmware | Standalone web UI / Flipper companion |
 | **Evil Portal** | Single-purpose captive portal with templated landing pages on the SD card | Web UI + companion FAP |
 
-Switching firmware: hold BOOT, tap RESET (release BOOT) → S2 enters download mode → flash with `esptool.py --chip esp32s2 write_flash 0x1000 firmware.bin` or drag the `.bin` into the on-board web flasher most of these projects ship.
+Switching firmware: hold BOOT, tap RESET (release BOOT) -> S2 enters download mode -> use the firmware project's own flasher / `flash_args`. Do **not** write an arbitrary app `.bin` at `0x1000`; on ESP32-S2 that is the bootloader slot. For split images the usual Devboard layout is:
+
+```bash
+esptool.py --chip esp32s2 write_flash -z \
+  0x1000 bootloader.bin \
+  0x8000 partitions.bin \
+  0xE000 boot_app0.bin \
+  0x10000 firmware.bin
+```
+
+If the project ships one merged flash image, write it at the offset its docs specify (commonly `0x0`) or drag it into the on-board web flasher most of these projects ship.
 
 ## SWD / debugger flow (was in fap-development.md)
 
@@ -74,7 +84,7 @@ The assert handler stops the CPU. Attach the debugger, type `c` once to reach th
 
 ### Reading logs
 
-The Devboard exposes a second USB CDC interface dedicated to firmware logs (`furi_log_print_format`). On macOS that's typically `/dev/cu.usbmodemflip_*1` for CLI/RPC and `/dev/cu.usbmodemflip_*3` for logs. Open with `screen` or `minicom` at 230400 baud, or use the web UI's log tab.
+The Devboard exposes a second USB CDC interface dedicated to Flipper firmware logs (`furi_log_print_format`). In Black Magic mode on macOS, the Devboard usually appears as `/dev/cu.usbmodemblackmagic1` for GDB/console and `/dev/cu.usbmodemblackmagic3` for logs. Open the log port with `screen` or `minicom` at 230400 baud; Devboard log capture requires the Devboard's USB connection, not Wi-Fi.
 
 ### Debugging non-Flipper ARM targets
 
@@ -131,8 +141,8 @@ Plugging the Flipper AND a USB-C cable into the Devboard at once gives you four 
 | --- | --- | --- | --- |
 | Flipper CDC0 | STM32 | `/dev/cu.usbmodemflip_*1` | CLI / RPC |
 | Flipper CDC1 | STM32 | `/dev/cu.usbmodemflip_*3` | Flipper logs |
-| Devboard CDC0 | ESP32-S2 | `/dev/cu.usbmodem*1` (separate device tree, no `flip_` prefix) | BM GDB / Marauder console |
-| Devboard CDC1 | ESP32-S2 | `/dev/cu.usbmodem*3` | UART passthrough (often Flipper's pin 13/14 USART1) |
+| Devboard CDC0 | ESP32-S2 | `/dev/cu.usbmodemblackmagic1` in Black Magic mode | BM GDB / console |
+| Devboard CDC1 | ESP32-S2 | `/dev/cu.usbmodemblackmagic3` in Black Magic mode | Flipper logs via Devboard UART (Marauder firmwares use their own device names) |
 
 `ls /dev/cu.usbmodem*` after plugging each one in separately is the fastest way to disambiguate.
 

@@ -211,7 +211,7 @@ After updating state, call `view_port_update(vp)` to request a redraw. The GUI s
 | `FuriRecord` | The system service registry. `furi_record_open(RECORD_GUI)` etc. Always pair `_open` with `_close`. |
 | `FuriString` | `mlib`-backed string with COW; use `furi_string_alloc/printf/cat/free`. |
 | `furi_hal_random_*` | Hardware RNG. |
-| `furi_log_print_format` | Logger, surfaced via the Wi-Fi Devboard CDC2 / `log` CLI. |
+| `furi_log_print_format` | Logger, surfaced via the Flipper log CDC / `log` CLI, or via the Black Magic Devboard log CDC when debugging through the board. |
 
 Do NOT call FreeRTOS APIs directly from app code — use the Furi wrappers for portability.
 
@@ -437,7 +437,7 @@ For an external FAP, attach to the running firmware, then `add-symbol-file dist/
 
 When `furi_assert` fires, the CPU is halted. Attach, `c` once to reach the assert site, `bt`/`info locals`/`up`/`down`. The message lives in `__furi_check_message` and `__furi_crash_message` globals.
 
-The Devboard's second CDC interface streams `furi_log_print_format` output — `/dev/cu.usbmodemflip_*1` is CLI/RPC, `*3` is logs (macOS), 230400 baud.
+The Devboard's second CDC interface streams `furi_log_print_format` output. In Black Magic mode on macOS, use `/dev/cu.usbmodemblackmagic3` at 230400 baud for logs; direct-Flipper `usbmodemflip_*` ports are a separate USB connection.
 
 The same Devboard hardware also runs Marauder / Ghost ESP / Bruce / Evil Portal — see [wifi-devboard.md](wifi-devboard.md) for that surface.
 

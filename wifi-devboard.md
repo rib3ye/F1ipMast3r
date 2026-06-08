@@ -33,7 +33,15 @@ Rev1 vs rev2 silicon: identical from the operator's perspective; rev2 fixes a US
 | **Bruce** | Multi-purpose: Wi-Fi attacks + IR + sub-GHz over GPIO + RFID — kitchen-sink offensive firmware | Standalone web UI / Flipper companion |
 | **Evil Portal** | Single-purpose captive portal with templated landing pages on the SD card | Web UI + companion FAP |
 
-Switching firmware: hold BOOT, tap RESET (release BOOT) → S2 enters download mode → flash with `esptool.py --chip esp32s2 write_flash 0x1000 firmware.bin` or drag the `.bin` into the on-board web flasher most of these projects ship.
+Switching firmware: hold BOOT, tap RESET (release BOOT) → S2 enters download mode → use the firmware project's own flasher / `flash_args`. Do not write an arbitrary app `.bin` at `0x1000`; on ESP32-S2 that is the bootloader slot. Merged factory images usually go at `0x0` only when the project explicitly says so. For split images the usual Devboard layout is:
+
+```bash
+esptool.py --chip esp32s2 write_flash -z \
+  0x1000 bootloader.bin \
+  0x8000 partitions.bin \
+  0xE000 boot_app0.bin \
+  0x10000 firmware.bin
+```
 
 ## SWD / debugger flow (was in fap-development.md)
 
@@ -74,7 +82,7 @@ The assert handler stops the CPU. Attach the debugger, type `c` once to reach th
 
 ### Reading logs
 
-The Devboard exposes a second USB CDC interface dedicated to firmware logs (`furi_log_print_format`). On macOS that's typically `/dev/cu.usbmodemflip_*1` for CLI/RPC and `/dev/cu.usbmodemflip_*3` for logs. Open with `screen` or `minicom` at 230400 baud, or use the web UI's log tab.
+The Devboard's second CDC interface streams `furi_log_print_format` output. In Black Magic mode on macOS, use `/dev/cu.usbmodemblackmagic3` at 230400 baud for logs; direct-Flipper `usbmodemflip_*` ports are a separate USB connection.
 
 ### Debugging non-Flipper ARM targets
 
